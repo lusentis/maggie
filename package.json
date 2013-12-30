@@ -1,0 +1,31 @@
+{
+  "name": "rtm",
+  "version": "0.0.0",
+  "description": "rtm ===",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/lusentis/rtm.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lusentis/rtm/issues"
+  },
+  "dependencies": {
+    "transmission": "~0.3.3",
+    "mega": "~0.2.0",
+    "parse-rss": "~0.1.1",
+    "request": "~2.30.0",
+    "coolog": "~3.0.0",
+    "sugar": "~1.4.1",
+    "async": "~0.2.9",
+    "irc": "~0.3.6",
+    "redis": "~0.10.0",
+    "suspend": "~0.4.0",
+    "config": "~0.4.33"
+  }
+}
