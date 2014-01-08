@@ -26,6 +26,7 @@ var parseRSS = require('parse-rss')
   , mega = require('mega')
   , irc = require('irc')
   , suspend = require('suspend')
+  , irrelevant = require('irrelevant')
   , path = require('path')
   , fs = require('fs')
   , Store = require('./store')
@@ -38,8 +39,10 @@ var logger = coolog.logger('app.js')
   , megaStorage = mega({})
   , ircc = new irc.Client(IRC_SERVER, IRC_NICKNAME, { debug: false })
   , store = new Store()
+  , book = fs.readFileSync('config/book.txt', { encoding: 'utf8' })
   , root = null
   , _cargo
+  , _mem = []
   ;
 
 ircc.on('error', function (err) {
@@ -59,14 +62,23 @@ ircc.on('message', function (nick, to, text) {
   logger.debug('Got message', nick, to, text);
   
   if (to !== IRC_NICKNAME) {
+    ircc.say(nick, 'Who are you?');
     return;
   }
   
   if (!root && text === 'I am root') {
     root = nick;
     ircc.say(nick, '' + nick + ' has been granted admin privileges.');
+    return;
   }
-      
+  
+  
+  if (text === 'mem?') {
+    ircc.say(nick, _mem.map(function (r) { r.join(' '); })).join('\n');
+    return;
+  }
+  
+  
   if (text.match(new RegExp(MACHINE.cmd_download_re))) {
     var parsed = new RegExp(MACHINE.cmd_download_re).exec(text);
     
@@ -100,6 +112,7 @@ ircc.on('message', function (nick, to, text) {
         if (parseInt(meta_item.peers, 10) + parseInt(meta_item.seeds, 10) < 100) {
           logger.warn('Episode', meta_item.episode, 'has too few peers.');
           ircc.say(nick, '[ x ] ' + meta_item.season + 'x' + meta_item.episode + ': slow!');
+          return;
         }
         
         _addTx(meta_item.magnet, function _addCallback(argument) {
@@ -114,7 +127,7 @@ ircc.on('message', function (nick, to, text) {
   }
 });
 
-
+/*
 parseRSS(RSS_URL, function (err, feed) {
   if (err) {
     logger.error('Error getting RSS feed', err);
@@ -163,7 +176,7 @@ parseRSS(RSS_URL, function (err, feed) {
     logger.log('Complete');
   });
 });
-
+*/
 
 // Gets metadata by file name
 
@@ -343,42 +356,45 @@ _cargo = async.cargo(function (tasks, done) {
   logger.debug('Cargo worker with', tasks.length, 'tasks...');
   
   async.eachSeries(tasks, function (tx_torrent, next) {
-    var fileName = tx_torrent.files[0].name
-      , filePath = path.join(tx_torrent.downloadDir, fileName)
-      ;
-      
     logger.log('Torrent', tx_torrent.id, 'is complete.');
-    logger.log('Uploading file', fileName, '(from ' + filePath + ')');
     
-    var stream = fs.createReadStream(filePath);
-    stream.pipe(megaStorage.upload(fileName));
-    
-    fs.readFile(filePath, {}, function (err, contents) {
-      if (err) {
-        next(err);
-        return;
-      }
+    async.eachSeries(tx_torrent.files, function (file, innerNext) {
+      var fileName = file.name
+        , filePath = path.join(tx_torrent.downloadDir, fileName)
+        ;
+        
+      logger.log('Uploading file', fileName, '(from ' + filePath + ')');
       
-      megaStorage.upload(fileName, contents, function (err, file) {
+      var stream = fs.createReadStream(filePath);
+      stream.pipe(megaStorage.upload(fileName));
+      
+      fs.readFile(filePath, {}, function (err, contents) {
         if (err) {
-          next(err);
+          innerNext(err);
           return;
         }
         
-        file.link(function (err, url) {
+        megaStorage.upload(fileName, contents, function (err, file) {
           if (err) {
-            next(err);
+            innerNext(err);
             return;
           }
           
-          //_sayWithUrl(tx_torrent);
-          _irccsay(url);
-          
-          logger.ok('Mega upload compete', url);
-          next();
+          file.link(function (err, url) {
+            if (err) {
+              innerNext(err);
+              return;
+            }
+            
+            _mem.push([ fileName, irrelevant.encode(url, book) ]);
+            
+            logger.ok('Mega upload compete', url);
+            innerNext();
+          });
         });
       });
-    });
+      
+    }, next);
     
   }, done);
   
