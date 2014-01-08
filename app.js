@@ -76,13 +76,17 @@ ircc.on('message', function (nick, to, text) {
   
   if (text === 'mem?') {
     suspend.run(function *() {
-      var mem = yield _mem.list(suspend.resume());
+      var mem = yield _mem.list(suspend.resume())
+        ;
+      
       logger.log('mem', mem);
       
       if (mem === null) {
         ircc.say(nick, irrelevant.encode('no memory', book));
       } else {
-        ircc.say(nick, Object.values(mem).join('\n'));
+        Object.values(mem).forEach(function (val) {
+          ircc.say(nick, val);
+        });
       }
     });
     return;
