@@ -18,22 +18,22 @@ function Store() {
 }
 
 Store.prototype.add = function(info_hash, val, cb) {
-  redis.hset(HASH_KEY, info_hash, val, cb);
+  this._redis.hset(HASH_KEY, info_hash, val, cb);
 };
 
 
-Store.prototype.remove = function(info_hash) {
-  redis.hdel(HASH_KEY, info_hash);
+Store.prototype.clear = function() {
+  this._redis.del(HASH_KEY);
 };
 
 
 Store.prototype.list = suspend.async(function *() {
-  return yield redis.hgetall(HASH_KEY, suspend.resume());
+  return yield this._redis.hgetall(HASH_KEY, suspend.resume());
 });
 
 
 Store.prototype.exists = suspend.async(function *(info_hash) {
-  return yield redis.hget(HASH_KEY, info_hash, suspend.resume());
+  return yield this._redis.hget(HASH_KEY, info_hash, suspend.resume());
 });
 
 

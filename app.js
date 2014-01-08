@@ -42,7 +42,8 @@ var logger = coolog.logger('app.js')
   , book = fs.readFileSync('config/book.txt', { encoding: 'utf8' })
   , root = null
   , _cargo
-  , _mem = []
+  , _uploading = []
+  , _mem = new Store()
   ;
 
 ircc.on('error', function (err) {
@@ -74,7 +75,16 @@ ircc.on('message', function (nick, to, text) {
   
   
   if (text === 'mem?') {
-    ircc.say(nick, _mem.map(function (r) { r.join(' '); })).join('\n');
+    suspend.run(function *() {
+      var mem = yield _mem.list(suspend.resume());
+      logger.log('mem', mem);
+      
+      if (mem === null) {
+        ircc.say(nick, irrelevant.encode('no memory', book));
+      } else {
+        ircc.say(nick, Object.values(mem).join('\n'));
+      }
+    });
     return;
   }
   
@@ -320,7 +330,8 @@ async.forever(function _foreverLoop(again) {
     }
         
     async.each(response.torrents, function _eachIterator(torrent, next) {
-      logger.log('Torrent', Object.select(torrent, ['id', 'status', 'peersConnected', 'name', 'hashString', 'downloadDir', 'files', 'isFinished']));
+      logger.log('Torrent', torrent.name, torrent.id);
+      // Object.select(torrent, ['id', 'status', 'peersConnected', 'name', 'hashString', 'downloadDir', 'files', 'isFinished']));
       
       if (torrent.status === transmission.status.SEED || torrent.status === transmission.status.SEED_WAIT) {
         _cargo.push(torrent, function (err) {
@@ -341,7 +352,7 @@ async.forever(function _foreverLoop(again) {
         throw err;
       }
             
-      setTimeout(again, 5000);
+      setTimeout(again, 60000);
     });
   });
   
@@ -355,15 +366,29 @@ async.forever(function _foreverLoop(again) {
 _cargo = async.cargo(function (tasks, done) {
   logger.debug('Cargo worker with', tasks.length, 'tasks...');
   
-  async.eachSeries(tasks, function (tx_torrent, next) {
-    logger.log('Torrent', tx_torrent.id, 'is complete.');
+  async.eachSeries(tasks, suspend.async(function *(tx_torrent, next) {
+    logger.log('Torrent', tx_torrent.hashString, '#' + tx_torrent.id, 'is complete:');
+    
+    if (yield _mem.exists(tx_torrent.hashString, suspend.resume())) {
+      logger.log('\t-> and has been already uploaded');
+      return;
+    }
+    
+    if (_uploading.indexOf(tx_torrent.hashString) !== -1) {
+      logger.log('\t-> upload is already in progress for this file.');
+      return;
+    }
+    
+    logger.log('Current uploads', _uploading);
+    
+    _uploading.push(tx_torrent.hashString);
     
     async.eachSeries(tx_torrent.files, function (file, innerNext) {
       var fileName = file.name
         , filePath = path.join(tx_torrent.downloadDir, fileName)
         ;
         
-      logger.log('Uploading file', fileName, '(from ' + filePath + ')');
+      logger.log('\t-> uploading file', fileName, '(from ' + filePath + ')');
       
       var stream = fs.createReadStream(filePath);
       stream.pipe(megaStorage.upload(fileName));
@@ -386,19 +411,23 @@ _cargo = async.cargo(function (tasks, done) {
               return;
             }
             
-            _mem.push([ fileName, irrelevant.encode(url, book) ]);
+            logger.ok('\t-> file upload compete', fileName, url);
             
-            logger.ok('Mega upload compete', url);
-            innerNext();
+            _mem.add(tx_torrent.hashString, [ fileName, irrelevant.encode(url, book) ].join(' '), function () {
+              logger.log('\t-> file in memory :D');
+              innerNext(null);
+            });
           });
         });
       });
       
     }, next);
     
-  }, done);
+  }), done);
   
-}, 1);
+});
+
+_cargo.payload = 1;
 
 /*
 var _sayWithUrl = suspend.async(function *(tx_torrent, url) {

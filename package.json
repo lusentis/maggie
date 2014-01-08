@@ -28,6 +28,7 @@
     "suspend": "~0.4.0",
     "config": "~0.4.33",
     "js-yaml": "~3.0.1",
-    "irrelevant": "~0.3.0"
+    "irrelevant": "~0.3.0",
+    "node-schedule": "~0.1.13"
   }
 }
