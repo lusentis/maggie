@@ -366,65 +366,80 @@ async.forever(function _foreverLoop(again) {
 _cargo = async.cargo(function (tasks, done) {
   logger.debug('Cargo worker with', tasks.length, 'tasks...');
   
-  async.eachSeries(tasks, suspend.async(function *(tx_torrent, next) {
+  async.eachSeries(tasks, function (tx_torrent, next) {
     logger.log('Torrent', tx_torrent.hashString, '#' + tx_torrent.id, 'is complete:');
     
-    if (yield _mem.exists(tx_torrent.hashString, suspend.resume())) {
-      logger.log('\t-> and has been already uploaded');
-      return;
-    }
-    
-    if (_uploading.indexOf(tx_torrent.hashString) !== -1) {
-      logger.log('\t-> upload is already in progress for this file.');
-      return;
-    }
-    
-    logger.log('Current uploads', _uploading);
-    
-    _uploading.push(tx_torrent.hashString);
-    
-    async.eachSeries(tx_torrent.files, function (file, innerNext) {
-      var fileName = file.name
-        , filePath = path.join(tx_torrent.downloadDir, fileName)
-        ;
-        
-      logger.log('\t-> uploading file', fileName, '(from ' + filePath + ')');
+    _mem.exists(tx_torrent.hashString, function (_, exists) {
       
-      var stream = fs.createReadStream(filePath);
-      stream.pipe(megaStorage.upload(fileName));
+      if (exists) {
+        logger.log('\t-> and has been already uploaded');
+        next();
+        return;
+      }
+    
+      if (_uploading.indexOf(tx_torrent.hashString) !== -1) {
+        logger.log('\t-> upload is already in progress for this file.');
+        next();
+        return;
+      }
       
-      fs.readFile(filePath, {}, function (err, contents) {
-        if (err) {
-          innerNext(err);
-          return;
-        }
+      
+      logger.log('Current uploads', _uploading);
+      _uploading.push(tx_torrent.hashString);
+      
+      
+      async.eachSeries(tx_torrent.files, function (file, innerNext) {
+        var fileName = file.name
+          , filePath = path.join(tx_torrent.downloadDir, fileName)
+          ;
+          
+        logger.log('\t-> uploading file', fileName, '(from ' + filePath + ')');
         
-        megaStorage.upload(fileName, contents, function (err, file) {
+        var stream = fs.createReadStream(filePath);
+        stream.pipe(megaStorage.upload(fileName));
+        
+        fs.readFile(filePath, {}, function (err, contents) {
           if (err) {
             innerNext(err);
             return;
           }
           
-          file.link(function (err, url) {
+          megaStorage.upload(fileName, contents, function (err, file) {
             if (err) {
               innerNext(err);
               return;
             }
             
-            logger.ok('\t-> file upload compete', fileName, url);
-            
-            _mem.add(tx_torrent.hashString, [ fileName, irrelevant.encode(url, book) ].join(' '), function () {
-              logger.log('\t-> file in memory :D');
-              innerNext(null);
-            });
-          });
-        });
+            file.link(function (err, url) {
+              if (err) {
+                innerNext(err);
+                return;
+              }
+              
+              logger.ok('\t-> file upload compete', fileName, url);
+              
+              _mem.add(tx_torrent.hashString, [ fileName, irrelevant.encode(url, book) ].join(' '), function () {
+                logger.log('\t-> file in memory :D');
+                innerNext(null);
+              });
+            }); // link
+          }); // upload
+        }); // fs
+      }, function (err) { // innerEach
+        next(err);
       });
       
-    }, next);
+    }); // _mem.exists
     
-  }), done);
-  
+  }, function (err) { 
+    if (err) {
+      logger.error('Serie batch error', err);
+      done(err);
+      return;
+    }
+    
+    done();
+  });
 });
 
 _cargo.payload = 1;
