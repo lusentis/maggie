@@ -84,7 +84,11 @@ ircc.on('message', function (nick, to, text) {
       if (mem === null) {
         ircc.say(nick, irrelevant.encode('no memory', book));
       } else {
-        megaStorage.upload('memory-' + new Date().valueOf() + '.txt', Object.values(mem).join('\n'), function (err, file) {
+        megaStorage.upload(
+            'memory-' + new Date().valueOf() + '.txt', 
+            new Buffer(Object.values(mem).join('\n'), 'utf8'),
+            function (err, file) {
+              
           if (err) {
             logger.error('Cannot store memory', err);
             return;
