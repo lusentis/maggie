@@ -84,11 +84,24 @@ ircc.on('message', function (nick, to, text) {
       if (mem === null) {
         ircc.say(nick, irrelevant.encode('no memory', book));
       } else {
-        Object.values(mem).forEach(function (val) {
-          ircc.say(nick, val);
+        megaStorage.upload('memory-' + new Date().valueOf() + '.txt', Object.values(mem).join('\n'), function (err, file) {
+          if (err) {
+            logger.error('Cannot store memory', err);
+            return;
+          }
+          
+          file.link(function (err, url) {
+            if (err) {
+              logger.error('Cannot get memory link', err);
+              return;
+            }
+            
+            ircc.say(nick, '' + url);
+          });
         });
       }
     });
+    
     return;
   }
   
