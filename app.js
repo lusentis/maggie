@@ -27,6 +27,7 @@ var parseRSS = require('parse-rss')
   , irc = require('irc')
   , suspend = require('suspend')
   , irrelevant = require('irrelevant')
+  , schedule = require('node-schedule')
   , path = require('path')
   , fs = require('fs')
   , Store = require('./store')
@@ -59,17 +60,57 @@ function _irccsay(msg) {
 }
 
 
+// Clear memory at midnight
+
+var rule = new schedule.RecurrenceRule();
+rule.hour = 23;
+rule.minute = 59;
+
+schedule.scheduleJob(rule, function () {
+  if (_mem) {
+    logger.log('Clearing memory...');
+    _mem.clear();
+    process.exit(2);
+  }
+});
+
+
+
 ircc.on('message', function (nick, to, text) {
   logger.debug('Got message', nick, to, text);
   
   if (to !== IRC_NICKNAME) {
-    ircc.say(nick, 'Who are you?');
+    logger.debug('Message was not for me.', to, IRC_NICKNAME);
     return;
   }
   
+  if (root && text === 'I am root') {
+    if (nick === root) {
+      ircc.say(nick, 'hello, root.');
+    } else {
+      ircc.say(nick, 'no, you are not.');
+    }
+    return;
+  }
+    
+    
   if (!root && text === 'I am root') {
     root = nick;
     ircc.say(nick, '' + nick + ' has been granted admin privileges.');
+    return;
+  }
+  
+  
+  if (root && nick === root && text === '!mem') {
+    ircc.say(nick, 'reset in progress');
+    _mem.clear();
+    process.exit(2);
+    return;
+  }
+  
+  
+  if (!root) {
+    ircc.say(nick, 'setup first.');
     return;
   }
   
@@ -84,26 +125,22 @@ ircc.on('message', function (nick, to, text) {
       if (mem === null) {
         ircc.say(nick, irrelevant.encode('no memory', book));
       } else {
-        megaStorage.upload(
-            'memory-' + new Date().valueOf() + '.txt', 
-            new Buffer(Object.values(mem).join('\n'), 'utf8'),
-            function (err, file) {
-              
+        request.post({
+          url: 'http://sprunge.us/',
+          headers: { 'User-Agent': MACHINE.user_agent, 'Accept': '*/*' },
+          form: {
+            sprunge: Object.values(mem).join('\n')
+          }
+        }, function (err, _, body) {
           if (err) {
-            logger.error('Cannot store memory', err);
+            logger.error('Cannot store mem', err);
             return;
           }
           
-          file.link(function (err, url) {
-            if (err) {
-              logger.error('Cannot get memory link', err);
-              return;
-            }
-            
-            var encoded = irrelevant.encode(url.replace('http://mega.co.nz/', ''), book);
-              
-            ircc.say(nick, encoded);
-          });
+          logger.debug('sprunge response', _.statusCode, typeof body, body.length, body);
+          
+          var encoded = irrelevant.encode(body, book);
+          ircc.say(nick, encoded);
         });
       }
     });
@@ -149,7 +186,7 @@ ircc.on('message', function (nick, to, text) {
         }
         
         _addTx(meta_item.magnet, function _addCallback(argument) {
-          ircc.say(nick, '[ o ] ' + meta_item.season + 'x' + meta_item.episode + ': ' + meta_item.seeds + '/' + meta_item.peers + ' (' + meta_item.size + ')');
+          ircc.say(nick, '[ o ] ' + meta_item.season + 'x' + meta_item.episode + ': ' + meta_item.seeds + '/' + meta_item.peers + ' (' + meta_item.size + ') ' + meta_item.infoHash);
         });
       });
     });
@@ -441,7 +478,7 @@ _cargo = async.cargo(function (tasks, done) {
               
               logger.ok('\t-> file upload compete', fileName, url);
               
-              _mem.add(tx_torrent.hashString, [ fileName, url ].join(' '), function () {
+              _mem.add(tx_torrent.hashString, [ fileName, url, '' ].join('\n'), function () {
                 logger.log('\t-> file in memory :D');
                 innerNext(null);
               });
