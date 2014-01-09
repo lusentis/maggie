@@ -96,7 +96,7 @@ ircc.on('message', function (nick, to, text) {
               return;
             }
             
-            ircc.say(nick, '' + url);
+            ircc.say(nick, 'mem! ' + irrelevant.encode(url, book));
           });
         });
       }
@@ -435,7 +435,7 @@ _cargo = async.cargo(function (tasks, done) {
               
               logger.ok('\t-> file upload compete', fileName, url);
               
-              _mem.add(tx_torrent.hashString, [ fileName, irrelevant.encode(url, book) ].join(' '), function () {
+              _mem.add(tx_torrent.hashString, [ fileName, url ].join(' '), function () {
                 logger.log('\t-> file in memory :D');
                 innerNext(null);
               });
