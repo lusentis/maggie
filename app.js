@@ -100,7 +100,9 @@ ircc.on('message', function (nick, to, text) {
               return;
             }
             
-            ircc.say(nick, 'mem! ' + irrelevant.encode(url, book));
+            var encoded = irrelevant.encode(url.replace('http://mega.co.nz/', '');
+              
+            ircc.say(nick, encoded, book));
           });
         });
       }
