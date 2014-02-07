@@ -12,6 +12,11 @@ Search torrents and prints magnet URIs, for testing purposes, of course.
     $ npm link
 
 
+## CONFIGURE
+
+You need to create a configuration file $HOME/.ht.json, see [this example](http://sprunge.us/jDgi);
+
+
 ## USE
 
     $ maggie "Elephant Dream 1080p"
