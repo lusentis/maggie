@@ -100,6 +100,7 @@ ircc.on('message', function (nick, to, text) {
         if (parseInt(meta_item.peers, 10) + parseInt(meta_item.seeds, 10) < 100) {
           logger.warn('Episode', meta_item.episode, 'has too few peers.');
           ircc.say(nick, '[ x ] ' + meta_item.season + 'x' + meta_item.episode + ': slow!');
+          return;
         }
         
         _addTx(meta_item.magnet, function _addCallback(argument) {
