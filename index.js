@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /*jshint node:true, indent:2, laxcomma:true, eqnull:true, unused:true, undef:true */
 
 'use strict';
@@ -10,12 +11,15 @@ var debug = require('debug')('ht')
   , fs = require('fs')
   ;
 
-
-var CONFIG = JSON.parse(fs.readFileSync(path.join(process.env.HOME, '.ht.json'), { encoding: 'utf8' }));
+try {
+  var CONFIG = JSON.parse(fs.readFileSync(path.join(process.env.HOME, '.ht.json'), { encoding: 'utf8' }));
+} catch (e) {
+  console.warn('Cannot parse configuration file ~/.ht.json. See README for info.');
+}
 
 var TORRENTZ_URL = 'https://torrentz.eu/search?f={q}'
   , TORRENTZ_RESULT_RE = '<div class="results">.*peers.*<dl><dt><a href="\/([0-9a-f]{40})">(.*<span class="s">(.*)<\/span>.*<span class="u">([\d\.,]*)<\/span>.*<span class="d">([\d\.,]*)<\/span>)?'
-  , REGEXP = /(.*) ((\d+)x(\d+)(-\d+)?([a-zA-Z]+)?|(season\s\d+))\s*(complete)?\s*(480p|720p|1080p|web-dl|hdtv|dvdrip|bluray|extended bluray)?(.*)/ig
+  , REGEXP = /(.*) ((\d+)x(\d+)(:\d+)?([a-zA-Z]+)?|(season\s\d+))\s*(complete)?\s*(480p|720p|1080p|web-dl|hdtv|dvdrip|bluray|extended bluray)?(.*)/ig
   , TRACKERS = CONFIG.trackers
   ;
 
