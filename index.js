@@ -15,13 +15,13 @@ var CONFIG = JSON.parse(fs.readFileSync(path.join(process.env.HOME, '.ht.json'),
 
 var TORRENTZ_URL = 'https://torrentz.eu/search?f={q}'
   , TORRENTZ_RESULT_RE = '<div class="results">.*peers.*<dl><dt><a href="\/([0-9a-f]{40})">(.*<span class="s">(.*)<\/span>.*<span class="u">([\d\.,]*)<\/span>.*<span class="d">([\d\.,]*)<\/span>)?'
-  , REGEXP = '(.*) ((\d+)x(\d+)(-\d+)?([a-zA-Z]+)?|(season\s\d+))\s*(complete)?\s*(480p|720p|1080p|web-dl|hdtv|dvdrip|bluray|extended bluray)?(.*)'
+  , REGEXP = /(.*) ((\d+)x(\d+)(-\d+)?([a-zA-Z]+)?|(season\s\d+))\s*(complete)?\s*(480p|720p|1080p|web-dl|hdtv|dvdrip|bluray|extended bluray)?(.*)/ig
   , TRACKERS = CONFIG.trackers
   ;
 
 
 (function () {
-  var title = '';
+  var title = process.argv[2];
   
   _getMeta({ title: title, originalTitle: title, subtitles: 'no' }, function (err, meta) {
     if (err) {
@@ -49,16 +49,18 @@ var TORRENTZ_URL = 'https://torrentz.eu/search?f={q}'
       
       debug('[ o ] ' + meta_item.season + 'x' + meta_item.episode + ': ' + meta_item.seeds + '/' + meta_item.peers + ' (' + meta_item.size + ') ' + meta_item.infoHash);
       process.stdout.write('' + meta_item.magnet);
+      process.stdout.write('\n');
     });
   });
+  
 })();
 
 
 function _getMeta(ret, next) {
-  var parts = new RegExp(REGEXP, 'ig').exec(ret.title);
+  var parts = REGEXP.exec(ret.title);
       
   if (parts === null) {
-    debug('Torrent did not match regexp', ret.title);
+    debug('Torrent did not match regexp', parts, ret.title);
     next(null, null);
     return;
   }

@@ -1,14 +1,17 @@
 {
-  "name": "ht",
+  "name": "maggie",
   "version": "0.0.1",
-  "description": "search torrent files and print their infohash",
-  "main": "app.js",
+  "description": "search torrent files and print their magnet URL",
+  "main": "index.js",
+  "bin": {
+    "maggie": "index.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/lusentis/ht.git"
+    "url": "git://github.com/lusentis/maggie.git"
   },
   "author": "Simone Lusenti <simone@plasticpanda.com>",
   "license": "GPLv3",
@@ -20,11 +23,7 @@
     "sugar": "~1.4.1",
     "debug": "~0.7.4"
   },
-  "homepage": "https://github.com/lusentis/ht",
+  "homepage": "https://github.com/lusentis/maggie",
   "keywords": [
-    "torrent",
-    "search",
-    "api",
-    "infohash"
   ]
 }
